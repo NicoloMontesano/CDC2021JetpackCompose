@@ -1,4 +1,4 @@
-package com.example.cdcapplication.ui
+package com.example.cdcapplication.component
 
 import androidx.compose.animation.core.Animatable
 import androidx.compose.animation.core.Spring

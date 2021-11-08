@@ -1,4 +1,4 @@
-package com.example.cdcapplication.ui
+package com.example.cdcapplication.component
 
 import androidx.compose.foundation.background
 import androidx.compose.foundation.layout.Box
