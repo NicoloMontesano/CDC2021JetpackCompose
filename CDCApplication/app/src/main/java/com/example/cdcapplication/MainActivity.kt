@@ -28,6 +28,7 @@ import androidx.compose.ui.input.nestedscroll.NestedScrollDispatcher
 import androidx.compose.ui.input.nestedscroll.NestedScrollSource
 import androidx.compose.ui.input.nestedscroll.nestedScroll
 import androidx.compose.ui.layout.onGloballyPositioned
+import androidx.compose.ui.layout.positionInWindow
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.*
@@ -71,112 +72,56 @@ fun homePage(bankAccounts: List<BankAccount>, bankTransfers: List<BankTransfer>)
     var yValue by remember {
         mutableStateOf(0f)
     }
-    var bottomY by remember {
-        mutableStateOf(0f)
-    }
-    var screenSize = 0f
+
+    var collapsedY = 0f
+    var archHeight = 0
 
     val lazyListState = rememberLazyListState()
-
     val nestedScrollDispatcher = remember { NestedScrollDispatcher() }
 
     val nestedScrollConnection = object : NestedScrollConnection{
         override fun onPreScroll(available: Offset, source: NestedScrollSource): Offset {
             val offset = available.y
-            if((yValue + offset) < 0)
-                yValue += offset
+            val generalOffset = yValue + offset
+            val archOffset = archHeight + generalOffset
+            if(generalOffset < 0) {
+                Log.d("[collapsedY]", collapsedY.toString())
+                if (collapsedY > 0)
+                    yValue += offset
+            }
             return Offset.Zero
         }
     }
 
-    BoxWithConstraints {
-        screenSize = this.maxHeight.value
-
-        Log.d("[ dragOffsetY ]", "dragOffsetY: $yValue")
-        ConstraintLayout(
-            modifier = Modifier
-                .fillMaxSize()
-                .nestedScroll(nestedScrollConnection, nestedScrollDispatcher)
-                .draggable(
-                    orientation = Orientation.Vertical,
-                    state = rememberDraggableState{ delta ->
-                        if((yValue + delta) < 0)
-                            yValue += delta
-                    }
-                )
-        ) {
-
-            val (anchor, arch, carousel, data) = createRefs()
-
-
-            val modifier = Modifier.constrainAs(data) {
-                top.linkTo(anchor.bottom)
-                bottom.linkTo(parent.bottom)
-            }
-
-            BankTransfers(modifier, bankTransfers, yValue, bottomY, lazyListState)
-
-            Box(
-                modifier = Modifier
-                    .height(280.dp)
-                    .constrainAs(anchor) {
-                        top.linkTo(parent.top)
-                    }
-                    .offset(0.dp, yValue.dp)
-            )
-            Box(
-                modifier = Modifier
-                    .constrainAs(arch) {
-                        top.linkTo(parent.top)
-                    }
-                    .offset(0.dp, yValue.dp)
-
-            ) {
-                Arch()
-            }
-            Box (
-                modifier = Modifier.constrainAs(carousel){
-                    top.linkTo(parent.top)
-                }
-            ) {
-                Carousel(bankAccounts, yValue)
-            }
-        }
-    }
-
-}
-
-@Composable
-fun Carousel(items: List<BankAccount>, offset: Float){
-    Pager(
-        items = items,
-        modifier = Modifier
-            .fillMaxWidth()
-            .padding(0.dp, 30.dp, 0.dp, 30.dp)
-            .graphicsLayer {
-                translationY = offset
-                alpha = 1 + offset / 200
-            },
-        itemFraction = .95f,
-        overshootFraction = .01f,
-        initialIndex = 1,
-        itemSpacing = 26.dp,
-    ) {
-        items.forEachIndexed { _, item ->
-            BankAccountCard(item = item)
-        }
-    }
-}
-
-@Composable
-fun BankTransfers(modifier: Modifier, bankTransfers: List<BankTransfer>, dragOffsetY: Float, bottom: Float, lazyListState: LazyListState ){
 
     LazyColumn(
-        modifier = modifier
-            .offset(0.dp, dragOffsetY.dp)
-        ,
-        state = lazyListState
-    ) {
+        Modifier.nestedScroll(nestedScrollConnection, nestedScrollDispatcher),
+        lazyListState
+    ){
+        item {
+            ConstraintLayout(
+                modifier = Modifier.fillMaxSize()
+            ) {
+                val (arch, carousel, collapsed) = createRefs()
+
+                Arch(Modifier.constrainAs(arch) {
+                    top.linkTo(parent.top)
+                }){ archH ->
+                    archHeight = archH
+                }
+
+                CollapsedState(Modifier.constrainAs(collapsed){
+                    bottom.linkTo(parent.bottom)
+                }, yValue){ currentY ->
+                    collapsedY = currentY
+                }
+
+                Carousel(Modifier.constrainAs(carousel){
+                    top.linkTo(parent.top)
+                }, bankAccounts, yValue)
+
+            }
+        }
         itemsIndexed(bankTransfers)  { index , current  ->
             when(index){
                 0 -> {
@@ -191,6 +136,51 @@ fun BankTransfers(modifier: Modifier, bankTransfers: List<BankTransfer>, dragOff
                 }
                 else -> BankTransferCard(current)
             }
+        }    }
+
+}
+
+@Composable
+fun CollapsedState(modifier: Modifier = Modifier, offset: Float, currentY: (Float) -> Unit){
+    Box(modifier = modifier.graphicsLayer {
+        alpha = - computeAlpha(offset)
+    }.onGloballyPositioned {
+        currentY(it.positionInWindow().y)
+    }) {
+        Text(
+            text = "Collapsed State",
+            fontSize = 21.sp,
+            color = Color.Black,
+            maxLines = 1,
+            overflow = TextOverflow.Ellipsis,
+            fontWeight = FontWeight.Bold,
+            modifier = Modifier.padding(20.dp, 45.dp, 40.dp, 40.dp)
+        )
+    }
+}
+
+@Composable
+fun Carousel(modifier: Modifier = Modifier, items: List<BankAccount>, offset: Float){
+    Pager(
+        items = items,
+        modifier = modifier
+            .fillMaxWidth()
+            .padding(0.dp, 30.dp, 0.dp, 30.dp)
+            .graphicsLayer {
+                translationY = offset
+                alpha = computeAlpha(offset)
+            },
+        itemFraction = .95f,
+        overshootFraction = .01f,
+        initialIndex = 1,
+        itemSpacing = 26.dp,
+    ) {
+        items.forEachIndexed { _, item ->
+            BankAccountCard(item = item)
         }
     }
+}
+
+fun computeAlpha(offset: Float): Float{
+    return 1 + offset / 250
 }

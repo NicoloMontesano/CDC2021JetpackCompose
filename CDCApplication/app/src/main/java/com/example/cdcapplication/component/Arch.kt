@@ -8,12 +8,15 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.geometry.Offset
 import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.layout.onGloballyPositioned
 import androidx.compose.ui.unit.dp
 
 @Composable
-fun Arch(){
-    Column {
-        Box(modifier = Modifier
+fun Arch(modifier: Modifier = Modifier, currentHeight: (Int) -> Unit){
+    Column(Modifier.onGloballyPositioned {
+        currentHeight(it.size.height)
+    }) {
+        Box(modifier = modifier
             .fillMaxWidth()
             .height(280.dp)
             .background(Brush.verticalGradient(
