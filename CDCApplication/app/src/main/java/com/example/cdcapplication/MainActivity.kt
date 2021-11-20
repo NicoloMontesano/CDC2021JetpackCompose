@@ -5,6 +5,9 @@ import android.util.Log
 import androidx.activity.ComponentActivity
 import androidx.activity.compose.setContent
 import androidx.compose.foundation.ScrollState
+import androidx.compose.foundation.gestures.Orientation
+import androidx.compose.foundation.gestures.draggable
+import androidx.compose.foundation.gestures.rememberDraggableState
 import androidx.compose.foundation.gestures.scrollBy
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.lazy.LazyColumn
@@ -21,8 +24,10 @@ import androidx.compose.ui.geometry.Offset
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.graphicsLayer
 import androidx.compose.ui.input.nestedscroll.NestedScrollConnection
+import androidx.compose.ui.input.nestedscroll.NestedScrollDispatcher
 import androidx.compose.ui.input.nestedscroll.NestedScrollSource
 import androidx.compose.ui.input.nestedscroll.nestedScroll
+import androidx.compose.ui.layout.onGloballyPositioned
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.*
@@ -63,65 +68,79 @@ fun getBankAccount(count: Int) : List<BankAccount>{
 
 @Composable
 fun homePage(bankAccounts: List<BankAccount>, bankTransfers: List<BankTransfer>){
-    var carouselOffset by remember {
+    var yValue by remember {
         mutableStateOf(0f)
     }
+    var bottomY by remember {
+        mutableStateOf(0f)
+    }
+    var screenSize = 0f
+
     val lazyListState = rememberLazyListState()
+
+    val nestedScrollDispatcher = remember { NestedScrollDispatcher() }
+
     val nestedScrollConnection = object : NestedScrollConnection{
         override fun onPreScroll(available: Offset, source: NestedScrollSource): Offset {
-            val delta = available.y
-            val layoutInfo = lazyListState.layoutInfo
-
-            if(lazyListState.firstVisibleItemIndex == 0){
-                return  Offset.Zero
-            }
-            if(layoutInfo.visibleItemsInfo.lastOrNull()?.index == layoutInfo.totalItemsCount -1){
-                return Offset.Zero
-            }
-            if(carouselOffset + delta < 0)
-                carouselOffset += delta
-
+            val offset = available.y
+            if((yValue + offset) < 0)
+                yValue += offset
             return Offset.Zero
         }
     }
-    ConstraintLayout(
-        modifier = Modifier
-            .fillMaxSize()
-    ) {
 
-        val (anchor, arch, carousel, data) = createRefs()
+    BoxWithConstraints {
+        screenSize = this.maxHeight.value
 
-        Box (
-            modifier = Modifier.constrainAs(data){
+        Log.d("[ dragOffsetY ]", "dragOffsetY: $yValue")
+        ConstraintLayout(
+            modifier = Modifier
+                .fillMaxSize()
+                .nestedScroll(nestedScrollConnection, nestedScrollDispatcher)
+                .draggable(
+                    orientation = Orientation.Vertical,
+                    state = rememberDraggableState{ delta ->
+                        if((yValue + delta) < 0)
+                            yValue += delta
+                    }
+                )
+        ) {
+
+            val (anchor, arch, carousel, data) = createRefs()
+
+
+            val modifier = Modifier.constrainAs(data) {
                 top.linkTo(anchor.bottom)
+                bottom.linkTo(parent.bottom)
             }
-        ) {
-            BankTransfers(bankTransfers, nestedScrollConnection, carouselOffset, lazyListState)
-        }
-        Box(
-            modifier = Modifier
-                .height(280.dp)
-                .constrainAs(anchor) {
-                    top.linkTo(parent.top)
-                }
-                .offset(0.dp, carouselOffset.dp)
-        )
-        Box(
-            modifier = Modifier
-                .constrainAs(arch) {
-                    top.linkTo(parent.top)
-                }
-                .offset(0.dp, carouselOffset.dp)
 
-        ) {
-            Arch()
-        }
-        Box (
-            modifier = Modifier.constrainAs(carousel){
-                top.linkTo(parent.top)
+            BankTransfers(modifier, bankTransfers, yValue, bottomY, lazyListState)
+
+            Box(
+                modifier = Modifier
+                    .height(280.dp)
+                    .constrainAs(anchor) {
+                        top.linkTo(parent.top)
+                    }
+                    .offset(0.dp, yValue.dp)
+            )
+            Box(
+                modifier = Modifier
+                    .constrainAs(arch) {
+                        top.linkTo(parent.top)
+                    }
+                    .offset(0.dp, yValue.dp)
+
+            ) {
+                Arch()
             }
-        ) {
-            Carousel(bankAccounts, carouselOffset)
+            Box (
+                modifier = Modifier.constrainAs(carousel){
+                    top.linkTo(parent.top)
+                }
+            ) {
+                Carousel(bankAccounts, yValue)
+            }
         }
     }
 
@@ -136,7 +155,7 @@ fun Carousel(items: List<BankAccount>, offset: Float){
             .padding(0.dp, 30.dp, 0.dp, 30.dp)
             .graphicsLayer {
                 translationY = offset
-                alpha = 1 + offset/200
+                alpha = 1 + offset / 200
             },
         itemFraction = .95f,
         overshootFraction = .01f,
@@ -150,11 +169,11 @@ fun Carousel(items: List<BankAccount>, offset: Float){
 }
 
 @Composable
-fun BankTransfers(bankTransfers: List<BankTransfer>, nestedScrollConnection: NestedScrollConnection, carouselOffset: Float, lazyListState: LazyListState ){
+fun BankTransfers(modifier: Modifier, bankTransfers: List<BankTransfer>, dragOffsetY: Float, bottom: Float, lazyListState: LazyListState ){
+
     LazyColumn(
-        modifier = Modifier
-            .nestedScroll(nestedScrollConnection)
-            .offset(0.dp, carouselOffset.dp)
+        modifier = modifier
+            .offset(0.dp, dragOffsetY.dp)
         ,
         state = lazyListState
     ) {
