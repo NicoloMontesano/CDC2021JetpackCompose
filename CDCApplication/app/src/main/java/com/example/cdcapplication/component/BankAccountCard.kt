@@ -56,3 +56,19 @@ fun BankAccountCard(item: BankAccount){
         }
     }
 }
+
+@Composable
+fun BankAccountCardCollapsed(item: BankAccount){
+
+    Column(
+        modifier = Modifier.fillMaxWidth().padding(20.dp, 30.dp, 20.dp, 35.dp)
+    ) {
+        Text(
+            modifier = Modifier.padding(25.dp, 25.dp, 0.dp, 0.dp),
+            text = "Conto " + item.bankAccountNumber, fontSize = 18.sp, maxLines = 1, overflow = TextOverflow.Ellipsis, color = Color.White)
+        Text(
+            modifier = Modifier.padding(25.dp, 0.dp, 0.dp, 0.dp),
+            text = item.balance.round(2).toString() + " €", fontSize = 25.sp, maxLines = 1, overflow = TextOverflow.Ellipsis, fontWeight = FontWeight.Bold, color = Color.White)
+    }
+
+}

@@ -33,12 +33,9 @@ import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.*
 import androidx.constraintlayout.compose.ConstraintLayout
+import com.example.cdcapplication.component.*
 import com.example.cdcapplication.domain.BankAccount
 import com.example.cdcapplication.domain.BankTransfer
-import com.example.cdcapplication.component.Arch
-import com.example.cdcapplication.component.BankAccountCard
-import com.example.cdcapplication.component.BankTransferCard
-import com.example.cdcapplication.component.Pager
 import kotlin.math.min
 
 class MainActivity : ComponentActivity() {
@@ -72,6 +69,7 @@ fun homePage(bankAccounts: List<BankAccount>, bankTransfers: List<BankTransfer>)
     var yValue by remember {
         mutableStateOf(0f)
     }
+    var gesturesDisabled by remember { mutableStateOf(false) }
 
     var collapsedY = 0f
     var archHeight = 0
@@ -83,11 +81,13 @@ fun homePage(bankAccounts: List<BankAccount>, bankTransfers: List<BankTransfer>)
         override fun onPreScroll(available: Offset, source: NestedScrollSource): Offset {
             val offset = available.y
             val generalOffset = yValue + offset
-            val archOffset = archHeight + generalOffset
             if(generalOffset < 0) {
                 Log.d("[collapsedY]", collapsedY.toString())
-                if (collapsedY > 0)
+                if (collapsedY + offset > 0) {
                     yValue += offset
+                }else{
+                    return Offset(0f, offset)
+                }
             }
             return Offset.Zero
         }
@@ -95,7 +95,8 @@ fun homePage(bankAccounts: List<BankAccount>, bankTransfers: List<BankTransfer>)
 
 
     LazyColumn(
-        Modifier.nestedScroll(nestedScrollConnection, nestedScrollDispatcher),
+        Modifier
+            .nestedScroll(nestedScrollConnection, nestedScrollDispatcher),
         lazyListState
     ){
         item {
@@ -112,7 +113,7 @@ fun homePage(bankAccounts: List<BankAccount>, bankTransfers: List<BankTransfer>)
 
                 CollapsedState(Modifier.constrainAs(collapsed){
                     bottom.linkTo(parent.bottom)
-                }, yValue){ currentY ->
+                }, yValue, bankAccounts.first()){ currentY ->
                     collapsedY = currentY
                 }
 
@@ -141,21 +142,15 @@ fun homePage(bankAccounts: List<BankAccount>, bankTransfers: List<BankTransfer>)
 }
 
 @Composable
-fun CollapsedState(modifier: Modifier = Modifier, offset: Float, currentY: (Float) -> Unit){
-    Box(modifier = modifier.graphicsLayer {
-        alpha = - computeAlpha(offset)
-    }.onGloballyPositioned {
-        currentY(it.positionInWindow().y)
-    }) {
-        Text(
-            text = "Collapsed State",
-            fontSize = 21.sp,
-            color = Color.Black,
-            maxLines = 1,
-            overflow = TextOverflow.Ellipsis,
-            fontWeight = FontWeight.Bold,
-            modifier = Modifier.padding(20.dp, 45.dp, 40.dp, 40.dp)
-        )
+fun CollapsedState(modifier: Modifier = Modifier, offset: Float, bankAccount: BankAccount, currentY: (Float) -> Unit){
+    Box(modifier = modifier
+        .graphicsLayer {
+            alpha = -computeAlpha(offset)
+        }
+        .onGloballyPositioned {
+            currentY(it.positionInWindow().y)
+        }) {
+        BankAccountCardCollapsed(item = bankAccount)
     }
 }
 
